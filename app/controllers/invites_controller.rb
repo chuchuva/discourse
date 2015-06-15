@@ -10,23 +10,36 @@ class InvitesController < ApplicationController
   def show
     invite = Invite.find_by(invite_key: params[:id])
 
-    if invite.present?
-      user = invite.redeem
-      if user.present?
-        log_on_user(user)
-
-        # Send a welcome message if required
-        user.enqueue_welcome_message('welcome_invite') if user.send_welcome_message
-
-        topic = invite.topics.first
-        if topic.present?
-          redirect_to path("#{topic.relative_url}")
-          return
-        end
-      end
+    if invite.present? && !invite.expired? && !invite.destroyed? && invite.link_valid?
+      render layout: 'no_ember'
+      return
     end
 
     redirect_to path("/")
+  end
+
+  def update
+    @invalid_password = params[:password].blank? || params[:password].length > User.max_password_length
+
+    if @invalid_password
+      @error = 'Password is invalid'
+      render action: 'show', layout: 'no_ember'
+    else
+      invite = Invite.find_by(invite_key: params[:id])
+      @user = invite.redeem
+      @user.password = params[:password]
+      @user.password_required!
+      @user.auth_token = nil
+      @user.email_tokens.create(email: @user.email, confirmed: true)
+      @user.active = true
+      if @user.save
+        Invite.invalidate_for_email(@user.email)
+        log_on_user(@user)
+        render layout: 'no_ember'
+      else
+        render action: 'show', layout: 'no_ember'
+      end
+    end
   end
 
   def create

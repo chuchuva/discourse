@@ -8,9 +8,9 @@ InviteRedeemer = Struct.new(:invite, :username, :name) do
       end
     end
 
-    # If `invite_passthrough_hours` is defined, allow them to re-use the invite link
-    # to login again.
-    if invite.redeemed_at && invite.redeemed_at >= SiteSetting.invite_passthrough_hours.hours.ago
+    # Allow them to re-use the invite link
+    # in order to make validating password work
+    if invite.redeemed_at && invite.redeemed_at >= 8.hours.ago
       return invited_user
     end
 
@@ -48,7 +48,6 @@ InviteRedeemer = Struct.new(:invite, :username, :name) do
     send_welcome_message
     approve_account_if_needed
     notify_invitee
-    send_password_instructions
     delete_duplicate_invites
   end
 
